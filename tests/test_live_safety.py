@@ -81,6 +81,7 @@ def test_a_symlinked_exclude_file_is_not_written_through(repo, tmp_path):
     assert victim.read_text() == "keep\n"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits: Windows keeps a profile private by ACL")
 def test_a_loose_state_root_is_made_private_and_the_launcher_is_owner_only(tmp_path):
     env = {"TOKENECONOMIZER_HOME": str(tmp_path / "home"), "TE_PLUGIN_ROOT": PLUGIN}
     os.makedirs(env["TOKENECONOMIZER_HOME"], mode=0o775)
@@ -90,6 +91,7 @@ def test_a_loose_state_root_is_made_private_and_the_launcher_is_owner_only(tmp_p
     assert _mode(ensure_launcher(env)) == 0o700
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits: Windows keeps a profile private by ACL")
 def test_the_command_line_creates_its_state_private(repo, tmp_path):
     env = dict(os.environ, TOKENECONOMIZER_HOME=str(tmp_path / "home"))
     subprocess.run(["sh", os.path.join(PLUGIN, "scripts", "te"), "--cwd", repo, "config", "set",

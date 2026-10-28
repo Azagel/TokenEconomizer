@@ -815,8 +815,8 @@ def test_a_fold_that_cannot_take_the_lock_skips_and_the_session_is_still_folded_
         env, repo, tmp_path, monkeypatch):
     """A paid fold holds the lock through its side call; a second fold of the same session that
     cannot take it skips, leaving the session for the holder or a later start: it is folded once."""
-    import fcntl
     from tokeneconomizer.plugin import fold, hosts
+    from tokeneconomizer.plugin.store import _try_lock, _unlock
     from tokeneconomizer.plugin.context import LiveContext
     t = trap_session(str(tmp_path / "s.jsonl"), repo, 0)
     base = {"session_id": "s", "transcript_path": t, "cwd": repo}
@@ -824,7 +824,7 @@ def test_a_fold_that_cannot_take_the_lock_skips_and_the_session_is_still_folded_
     st = store_for(env, repo)
     monkeypatch.setattr(fold, "FOLD_LOCK_WAIT_S", 0.2)
     holder = open(st.path(".fold.lock"), "a+")          # another fold, mid side call
-    fcntl.flock(holder.fileno(), fcntl.LOCK_EX)
+    _try_lock(holder)
     try:
         call(env, dict(base, hook_event_name="SessionEnd", reason="other"))   # folds inline
         assert st.read_lines("ledger.jsonl") == []
@@ -832,7 +832,7 @@ def test_a_fold_that_cannot_take_the_lock_skips_and_the_session_is_still_folded_
         ctx = LiveContext.build(hosts.HOSTS["claude"](), repo, env)
         assert "s" in fold.pending_sessions(ctx)        # left for the holder, or a later start
     finally:
-        fcntl.flock(holder.fileno(), fcntl.LOCK_UN)
+        _unlock(holder)
         holder.close()
     assert fold.fold_session(ctx, "s") is not None
     assert fold.fold_session(ctx, "s") is None

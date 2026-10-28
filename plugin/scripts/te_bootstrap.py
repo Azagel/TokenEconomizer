@@ -41,6 +41,19 @@ def _marketplace_sources(plugin_root):
         return []
     home, market = os.sep.join(parts[:-5]), parts[-3]
     out = [os.path.join(home, ".tmp", "marketplaces", market)]
+    # Claude Code keeps the same cache layout under `~/.claude/plugins/cache/`; on a checkout
+    # without symlinks (Windows) the copy has no `lib`, so the package is found in the clone
+    # its `known_marketplaces.json` records for this marketplace.
+    try:
+        import json
+        known = json.load(open(os.path.join(home, "plugins", "known_marketplaces.json")))
+        entry = known.get(market) or {}
+        source = entry.get("source") or {}
+        for cand in (source.get("path"), entry.get("installLocation")):
+            if cand:
+                out.append(cand)
+    except (IOError, OSError, ValueError, AttributeError):
+        pass
     try:
         text = open(os.path.join(home, "config.toml")).read()
     except (IOError, OSError):
@@ -57,10 +70,24 @@ def _marketplace_sources(plugin_root):
     return out
 
 
+def _symlink_stub(plugin_root):
+    """Where `lib/tokeneconomizer` points when git checked the symlink out as a plain file
+    holding its target (Windows without symlink support): the directory holding the package."""
+    stub = os.path.join(plugin_root, "lib", "tokeneconomizer")
+    try:
+        if not os.path.isfile(stub) or os.path.getsize(stub) > 1024:
+            return None
+        target = open(stub).read().strip()
+    except (IOError, OSError):
+        return None
+    return os.path.dirname(os.path.normpath(os.path.join(plugin_root, "lib", target)))
+
+
 def core_path():
     plugin_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     for cand in ([os.environ.get("TE_CORE_PATH"), os.path.join(plugin_root, "lib"),
-                  os.path.dirname(plugin_root)] + _marketplace_sources(plugin_root)):
+                  _symlink_stub(plugin_root), os.path.dirname(plugin_root)]
+                 + _marketplace_sources(plugin_root)):
         if cand and os.path.isfile(os.path.join(cand, "tokeneconomizer", "plugin", "hook.py")):
             return cand
     return None

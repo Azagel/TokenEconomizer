@@ -8,6 +8,8 @@ import sys
 
 import pytest
 
+pytestmark = pytest.mark.skipif(os.name == "nt", reason="the stand-in Python is a sh script")
+
 from tokeneconomizer.plugin import repomap
 from tokeneconomizer.plugin.config import LiveConfig
 from tests.test_live_hooks import call, env, repo  # noqa: F401

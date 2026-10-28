@@ -1,0 +1,4 @@
+# Shell launchers must keep LF endings, or sh fails on Windows checkouts with core.autocrlf=true.
+plugin/scripts/te text eol=lf
+plugin/scripts/te-hook text eol=lf
+*.sh text eol=lf

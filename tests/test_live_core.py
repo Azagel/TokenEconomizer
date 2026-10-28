@@ -230,6 +230,7 @@ def test_a_compressed_rollout_is_reported_unreadable(tmp_path):
 
 
 # ---- hosts ---------------------------------------------------------------------------------
+@pytest.mark.skipif(os.name == "nt", reason="no `ps` on Windows: Copilot -p is not told apart")
 def test_host_detection():
     assert hosts.detect({"turn_id": "t"}).name == "codex"
     assert hosts.detect({"transcript_path": "/h/.codex/sessions/2026/rollout-a.jsonl"}).name == "codex"
@@ -845,6 +846,7 @@ def test_copilot_side_calls_name_a_model_a_byok_provider_can_serve():
                                   "COPILOT_PROVIDER_TYPE": wire}) == "anthropic/claude-haiku-4.5"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="the probe trap is made of sh scripts")
 def test_the_probe_repository_carries_its_trap(tmp_path):
     import subprocess
     from tokeneconomizer.plugin import probe

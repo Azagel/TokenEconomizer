@@ -11,6 +11,7 @@ repository. `observe_task` returns everything the environment-fact families need
 session.
 """
 import os
+import posixpath
 import re
 from dataclasses import dataclass
 
@@ -252,20 +253,40 @@ def _cd_target(cur, target, root=None, top=None):
     there."""
     if not target or target[0] in "~$-":
         return None
-    if os.path.isabs(target):
+    # The command is shell text (Git Bash on Windows too), so its paths are compared in one
+    # POSIX spelling: `C:\r`, `C:/r` and `/c/r` are the same directory.
+    target, cur = _shell_path(target), _shell_path(cur or ".")
+    if _shell_isabs(target):
         if not root:
             return None
-        rel = os.path.relpath(os.path.normpath(target), os.path.normpath(root))
+        rel = posixpath.relpath(posixpath.normpath(target), posixpath.normpath(_shell_path(root)))
     else:
-        rel = os.path.normpath(os.path.join(cur or ".", target))
+        rel = posixpath.normpath(posixpath.join(cur, target))
     if rel == ".":
         return ""
     if rel == ".." or rel.startswith("../"):
         if not (top and root):
             return None
-        at = os.path.normpath(os.path.join(root, rel))
-        return "" if at == os.path.normpath(top) else None
+        at = posixpath.normpath(posixpath.join(_shell_path(root), rel))
+        return "" if at == posixpath.normpath(_shell_path(top)) else None
     return rel
+
+
+_DRIVE_RE = re.compile(r"^/([A-Za-z])(?=/|$)|^([A-Za-z]):(?=/|$)")
+
+
+def _shell_path(p):
+    """`p` with forward slashes and a Windows drive spelled `c:` (from a backslashed `C:`, `C:/`
+    or `/c/`); a POSIX path is returned as it is."""
+    p = p.replace("\\", "/") if os.sep == "\\" else p
+    m = _DRIVE_RE.match(p)
+    if m and os.sep == "\\":
+        p = (m.group(1) or m.group(2)).lower() + ":" + p[m.end():]
+    return p
+
+
+def _shell_isabs(p):
+    return p.startswith("/") or bool(re.match(r"^[a-z]:(/|$)", p))
 
 
 def classify_command(cmd, call_index=0, vocab=None, cwd="", root=None, top=None):

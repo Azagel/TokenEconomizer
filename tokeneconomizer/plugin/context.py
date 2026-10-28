@@ -82,6 +82,9 @@ class LiveContext:
         cmd = [sys.executable, "-m", "tokeneconomizer.plugin.cli", *argv,
                "--host", self.host.name, "--cwd", self.repo.root]
         self.store.ensure()
+        if os.name == "nt":
+            from . import winspawn
+            return winspawn.spawn(cmd, self.repo.root, env, self.store.path(log_name))
         log = open(self.store.path(log_name), "a")
         try:
             subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=log, stderr=log,

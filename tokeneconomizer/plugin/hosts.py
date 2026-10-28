@@ -421,6 +421,8 @@ def _ancestor_args(limit=4):
     """The command lines of this process's nearest ancestors, nearest first."""
     import subprocess
     out, pid = [], os.getppid()
+    if os.name == "nt":
+        return out  # no `ps` there; Copilot's `-p` is then not told apart (a notice is kept)
     for _ in range(limit):
         if pid <= 1:
             break

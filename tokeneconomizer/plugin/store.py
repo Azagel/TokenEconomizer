@@ -6,8 +6,9 @@ therefore happens under an exclusive lock on a sibling lock file, and every writ
 temporary file and `os.replace`, so a reader never sees half a document. Per-session documents are
 written by one session only and need no lock.
 
-Locking uses `fcntl.flock`. Where it is unavailable (Windows) the lock degrades to a no-op rather
-than failing the hook: a lost update is recoverable, a crashed hook is not.
+Locking uses `fcntl.flock`, and `msvcrt.locking` on Windows. Where neither is available the lock
+degrades to a no-op rather than failing the hook: a lost update is recoverable, a crashed hook is
+not.
 """
 import contextlib
 import json
@@ -18,6 +19,28 @@ try:
     import fcntl
 except ImportError:          # pragma: no cover - Windows
     fcntl = None
+
+try:
+    import msvcrt
+except ImportError:          # pragma: no cover - POSIX
+    msvcrt = None
+
+
+def _try_lock(fh):
+    """Take an exclusive lock on `fh` without blocking; raise OSError when it is held."""
+    if fcntl is not None:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    else:
+        fh.seek(0)
+        msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+
+
+def _unlock(fh):
+    if fcntl is not None:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+    else:
+        fh.seek(0)
+        msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 class Store:
@@ -78,7 +101,7 @@ class Store:
         `timeout` seconds -- a hook must never hang the agent, and a hook's caller proceeds
         either way. A caller that must not run unlocked (the fold) checks the yielded flag."""
         os.makedirs(self.base, exist_ok=True)
-        if fcntl is None:
+        if fcntl is None and msvcrt is None:
             yield True
             return
         fh = open(self.path(f".{name}.lock"), "a+")
@@ -87,7 +110,7 @@ class Store:
         try:
             while True:
                 try:
-                    fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    _try_lock(fh)
                     got = True
                     break
                 except OSError:
@@ -97,5 +120,5 @@ class Store:
             yield got
         finally:
             if got:
-                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+                _unlock(fh)
             fh.close()

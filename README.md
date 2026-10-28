@@ -1,5 +1,10 @@
 # TokenEconomizer: Experience-Driven Black-Box Cost Control for Coding Agents
 
+> **Windows port.** This is a fork of
+> [microsoft/TokenEconomizer](https://github.com/microsoft/TokenEconomizer) that runs in Claude
+> Code on Windows, which upstream does not support. Install, the eight fixes and what was
+> verified: [**WINDOWS.md**](WINDOWS.md). Everything below is the upstream README.
+
 <p align="center">
   Aaron J. Li<sup>1</sup>,
   Weijia Xu<sup>2</sup>,
